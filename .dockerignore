@@ -1,0 +1,7 @@
+node_modules
+web/node_modules
+.git
+.next
+web/.next
+npm-debug.log
+web/npm-debug.log
