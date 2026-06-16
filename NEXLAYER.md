@@ -153,7 +153,72 @@ application:
 
 ## Build Notes
 <!-- nexlayer:section user-editable=build_notes -->
-<!-- Add notes for future builds here — preserved across re-analysis -->
+
+### 503 root-cause analysis (2026-06-16, branch `nexlayer`, PR #1)
+
+**Symptom:** Image builds and pushes fine, but the app never answers — `app not responding
+after 2m (HTTP 503)`. A 503 here means **nothing is listening on port 3000**, i.e. the Node
+process crashed during startup. It is *not* a build, bcrypt, or routing problem.
+
+**Why it crashes — primary cause: the app exits before it ever binds the port.**
+
+In [src/index.js:57-73](src/index.js#L57-L73) `start()` does `await bootstrapDatabase()`
+*before* `server.listen()`. `bootstrapDatabase()` ([src/db/bootstrap.js:63-83](src/db/bootstrap.js#L63-L83))
+calls `waitForDatabase()`, which retries `SELECT 1` 60× at 2s = **up to 120s**, then **throws**.
+The top-level `.catch` then calls `process.exit(1)`. So any DB connection problem =
+no listener on :3000 = connection refused = 503. The 4–5 min of "app starting…" is the
+retry window plus restarts.
+
+**Why the DB connection fails — the `DATABASE_URL` the container uses is wrong:**
+
+1. **No credentials.** The `/nx-start.sh` hack in the [Dockerfile](Dockerfile#L22-L30) builds
+   `postgresql://<derived>-postgres-service:5432/chatdb` with **no user/password**. The
+   `postgres` pod runs with `POSTGRES_USER=user` / `POSTGRES_PASSWORD=pass`, so it requires
+   auth → `password authentication failed` → bootstrap throws → crash.
+2. **Guessed hostname.** The script strips `ROOT_URL` and does `cut -d- -f3-` to guess the
+   namespace, then appends `-postgres-service`. This assumes the prefix is exactly two
+   hyphenated words and that the service is named `<ns>-postgres-service`. Both are guesses
+   that almost certainly don't match the real in-cluster DNS name.
+3. **Depends on `ROOT_URL` existing.** If `ROOT_URL` is unset at runtime, the script exports
+   nothing, and dotenv then falls back to the **committed `.env`** (`postgresql://localhost/chatapp`),
+   which points at localhost → no Postgres in the pod → same crash.
+4. The whole shell hack fights the platform. Nexlayer's own rule (see `nexlayer.skills:44-49`,
+   `76`, `93`) is to reference pods with `${podName:port}` directly in `nexlayer.yaml vars`.
+
+**Contributing / secondary issues:**
+
+- **`.env` is baked into the image.** It is *not* in [.dockerignore](.dockerignore), so `COPY . .`
+  ships `DATABASE_URL=postgresql://localhost/chatapp`, `REDIS_URL=redis://localhost:6379`, and a
+  hardcoded `JWT_SECRET`. This is both a wrong-config footgun and a secret leak.
+- **No `GET /` route.** `nexlayer.yaml` sets `path: /`, but Express only serves `/api/*` and
+  `/health` ([src/index.js:33-51](src/index.js#L33-L51)). Even a fully healthy app returns 404 at
+  root. Point the health path at `/health` or add a root route.
+- **`HOSTNAME=0.0.0.0` is a no-op here.** The code calls `server.listen(PORT)` with no host
+  ([src/index.js:61](src/index.js#L61)); Node already binds 0.0.0.0 by default. `HOSTNAME` only
+  matters for Next.js, not this Express server. Not harmful, just ineffective.
+- **bcrypt is a red herring.** Builder and runtime use the same `node:22-alpine` base, so the
+  copied native binary is ABI-compatible. The multi-stage change didn't fix the real problem.
+
+**Recommended fix (do this instead of the nx-start.sh hack):**
+
+1. Delete `/nx-start.sh` and the `ENTRYPOINT`; let `CMD ["node","src/index.js"]` run directly.
+2. Set connection strings in `nexlayer.yaml` `app` pod `vars` using documented interpolation,
+   **with credentials matching the postgres pod**:
+   ```yaml
+   vars:
+     NODE_ENV: production
+     PORT: "3000"
+     DATABASE_URL: "postgresql://user:pass@${postgres:5432}/chatdb"
+     REDIS_URL: "redis://${redis:6379}"
+     JWT_SECRET: "<set as a secret in the Nexlayer dashboard, not here>"
+   ```
+   (Move `JWT_SECRET` and the real Postgres password to dashboard secrets per the rules above.)
+3. Add `.env` to `.dockerignore` so the localhost config and committed secret never ship.
+4. Make startup resilient so a slow/absent DB doesn't 503 the whole app — either:
+   - call `server.listen(PORT)` **first**, then run `bootstrapDatabase()` in the background, or
+   - keep the order but ensure DB vars are correct (above) so `waitForDatabase` succeeds.
+5. Either set the health path to `/health` in `nexlayer.yaml`, or add `app.get('/', ...)`.
+
 <!-- nexlayer:end -->
 
 ## Nexlayer Configuration

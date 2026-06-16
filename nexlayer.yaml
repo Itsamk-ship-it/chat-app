@@ -10,6 +10,9 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
+        DATABASE_URL: "postgresql://user:pass@${postgres:5432}/chatdb"
+        REDIS_URL: "redis://${redis:6379}"
+        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
