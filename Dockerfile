@@ -1,15 +1,15 @@
-FROM mirror.gcr.io/library/node:22-slim
+FROM mirror.gcr.io/library/node:22-alpine
 
-# Install build tools for native modules (bcrypt) - using slim instead of alpine to avoid libc incompatibilities
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Install build tools for native modules (bcrypt)
+RUN apk add --no-cache python3 make g++ linux-headers
 
 WORKDIR /app
 
 # Copy package manifests
 COPY package*.json ./
 
-# Install dependencies - using --legacy-peer-deps as requested by escalation hint
-# We avoid npm ci here to allow legacy-peer-deps to resolve conflicts that might be in the lockfile
+# Install all dependencies
+# Using --legacy-peer-deps to handle potential conflicts in the lockfile
 RUN npm install --legacy-peer-deps
 
 # Copy the rest of the application
@@ -22,11 +22,18 @@ ENV HOSTNAME=0.0.0.0
 
 EXPOSE 3000
 
-# The app is a plain JS Express app (src/index.js)
-# We use a minimal entrypoint that doesn't attempt complex regex on ROOT_URL
-# We rely on the platform to inject necessary env vars or the user to set them in nexlayer.yaml
-# But we provide a basic shell wrapper to ensure environment variables are processed
-RUN printf '%s\n' "#!/bin/sh\necho 'Starting Express app on port $PORT...$\nexec "$@"" > /nx-start.sh && chmod +x /nx-start.sh
+# The app requires DATABASE_URL and REDIS_URL at runtime.
+# This wrapper script handles the Nexlayer service discovery pattern,
+# converting ROOT_URL into the internal service hostnames for Postgres and Redis.
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'if [ -n "$ROOT_URL" ]; then' \
+    '  _h=$(echo "$ROOT_URL" | sed "s|https://||" | sed "s|\.cloud\.nexlayer\.ai||")' \
+    '  _d=$(echo "$_h" | cut -d- -f3-)' \
+    '  export DATABASE_URL="postgresql://postgres:password@${_d}-postgres-service:5432/chatdb"' \
+    '  export REDIS_URL="redis://${_d}-redis-service:6379"' \
+    'fi' \
+    'exec "$@"' > /nx-start.sh && chmod +x /nx-start.sh
 
 ENTRYPOINT ["/bin/sh", "/nx-start.sh"]
 CMD ["node", "src/index.js"]

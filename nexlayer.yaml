@@ -10,9 +10,6 @@ application:
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
         NODE_ENV: "production"
-        ROOT_URL: "<% URL %>"
-        DATABASE_URL: "postgresql://postgres:password@${postgres:5432}/chatdb"
-        REDIS_URL: "redis://${redis:6379}"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
