@@ -1,3 +1,10 @@
+# Nexlayer working build fix
+
+This file is the authoritative, pinned build solution for this repo. Nexlayer uses it verbatim on every run and will not override it. If a future build with this fix fails, Nexlayer appends/updates it rather than regenerating.
+
+## Fixed Dockerfile
+
+```dockerfile
 FROM mirror.gcr.io/library/node:20-alpine
 
 # Install build tools for native modules (bcrypt)
@@ -37,3 +44,34 @@ RUN printf '%s\n' \
     'exec "$@"' > /nx-start.sh && chmod +x /nx-start.sh
 ENTRYPOINT ["/bin/sh", "/nx-start.sh"]
 CMD ["node", "src/index.js"]
+```
+
+## Fixed nexlayer.yaml
+
+```yaml
+application:
+  name: chat-app
+  pods:
+    - name: app
+      image: "# filled by pipeline"
+      servicePorts:
+        - 3000
+      vars:
+        PORT: "3000"
+        HOSTNAME: "0.0.0.0"
+        DATABASE_URL: "postgresql://postgres:password@${postgres:5432}/chatdb"
+        REDIS_URL: "redis://${redis:6379}"
+    - name: postgres
+      image: mirror.gcr.io/library/postgres:16-alpine
+      servicePorts:
+        - 5432
+      vars:
+        POSTGRES_USER: "postgres"
+        POSTGRES_PASSWORD: "password"
+        POSTGRES_DB: "chatdb"
+    - name: redis
+      image: mirror.gcr.io/library/redis:7-alpine
+      servicePorts:
+        - 6379
+      vars: {}
+```

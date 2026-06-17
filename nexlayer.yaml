@@ -19,7 +19,8 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
-        DATABASE_URL: "postgresql://user:pass@${postgres:5432}/chatdb"
+        ROOT_URL: "<% URL %>"
+        DATABASE_URL: "postgresql://postgres:password@${postgres:5432}/chatdb"
         REDIS_URL: "redis://${redis:6379}"
         JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
     - name: postgres
@@ -27,9 +28,9 @@ application:
       servicePorts:
         - 5432
       vars:
-        POSTGRES_DB: chatdb
-        POSTGRES_USER: user
-        POSTGRES_PASSWORD: pass
+        POSTGRES_USER: "postgres"
+        POSTGRES_PASSWORD: "password"
+        POSTGRES_DB: "chatdb"
     - name: redis
       image: mirror.gcr.io/library/redis:7-alpine
       servicePorts:
