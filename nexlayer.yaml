@@ -1,0 +1,38 @@
+application:
+  name: warm-jade-chat-app
+  pods:
+    - name: web
+      image: "# filled by pipeline"   # built from web/Dockerfile.web (Next.js frontend)
+      path: /
+      servicePorts:
+        - 3000
+      vars:
+        NODE_ENV: production
+        PORT: "3000"
+        HOSTNAME: "0.0.0.0"
+    - name: app
+      image: "# filled by pipeline"   # built from root Dockerfile (Express/Socket.io API)
+      path: /api
+      servicePorts:
+        - 3000
+      vars:
+        NODE_ENV: production
+        PORT: "3000"
+        HOSTNAME: "0.0.0.0"
+        ROOT_URL: "<% URL %>"
+        DATABASE_URL: "postgresql://postgres:password@${postgres:5432}/chatdb"
+        REDIS_URL: "redis://${redis:6379}"
+        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
+    - name: postgres
+      image: mirror.gcr.io/library/postgres:16-alpine
+      servicePorts:
+        - 5432
+      vars:
+        POSTGRES_USER: "postgres"
+        POSTGRES_PASSWORD: "password"
+        POSTGRES_DB: "chatdb"
+    - name: redis
+      image: mirror.gcr.io/library/redis:7-alpine
+      servicePorts:
+        - 6379
+      vars: {}

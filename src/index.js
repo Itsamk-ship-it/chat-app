@@ -40,6 +40,10 @@ app.use('/api/threads',  threadsRoutes);
 app.use('/api/search',   searchRoutes);
 app.use('/api/messages', messageRoutes);
 
+app.get('/', (_req, res) => {
+  res.json({ status: 'ok', service: 'chat-app', message: 'ChatApp API is running' });
+});
+
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
