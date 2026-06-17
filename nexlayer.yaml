@@ -1,8 +1,8 @@
 application:
   name: warm-jade-chat-app
   pods:
-    - name: web
-      image: registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/warm-jade-chat-app-web:v0.0.1
+    - name: frontend
+      image: "# filled by pipeline"   # built from web/Dockerfile.web (Next.js)
       path: /
       servicePorts:
         - 3000
@@ -10,8 +10,8 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
-    - name: app
-      image: registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/warm-jade-chat-app-api:v0.0.1
+    - name: backend
+      image: "# filled by pipeline"   # built from root Dockerfile (Express/Socket.io API)
       path: /api
       servicePorts:
         - 3000
@@ -19,11 +19,10 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
-        ROOT_URL: "<% URL %>"
-        DATABASE_URL: "postgresql://postgres:password@${postgres:5432}/chatdb"
-        REDIS_URL: "redis://${redis:6379}"
+        DATABASE_URL: "postgresql://postgres:password@${postgres-db:5432}/chatdb"
+        REDIS_URL: "redis://${redis-cache:6379}"
         JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
-    - name: postgres
+    - name: postgres-db
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
         - 5432
@@ -31,7 +30,7 @@ application:
         POSTGRES_USER: "postgres"
         POSTGRES_PASSWORD: "password"
         POSTGRES_DB: "chatdb"
-    - name: redis
+    - name: redis-cache
       image: mirror.gcr.io/library/redis:7-alpine
       servicePorts:
         - 6379
