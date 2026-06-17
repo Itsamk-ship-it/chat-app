@@ -1,6 +1,6 @@
 # Nexlayer — chat-app
 
-<!-- nexlayer:meta version=1 analyzed=2026-06-17T12:18:46Z repo=https://github.com/Itsamk-ship-it/chat-app branch=main -->
+<!-- nexlayer:meta version=1 analyzed=2026-06-17T12:44:44Z repo=https://github.com/Itsamk-ship-it/chat-app branch=main -->
 
 > **For AI agents (Claude Code, Cursor, Gemini CLI, Copilot):**
 > This file is the **project context** for this Nexlayer deployment — tech stack, env vars, secrets, live URL.
@@ -15,7 +15,7 @@
 
 ## Project Summary
 <!-- nexlayer:section agent-managed=project_summary -->
-A real-time Slack-like team chat application featuring organizations, channels, and direct messaging. It utilizes a Node.js/Express backend with Socket.io for real-time communication, PostgreSQL for persistence, and Redis for pub/sub fan-out.
+A real-time Slack-like team chat application featuring organizations, channels, direct messages, and threads. It utilizes a Node.js/Express backend with Socket.io for real-time communication and Redis for pub/sub fan-out.
 <!-- nexlayer:end -->
 
 ## Technology Stack
@@ -25,19 +25,18 @@ A real-time Slack-like team chat application featuring organizations, channels, 
 | Node.js | language | 20 | Dockerfile |
 | Express | framework | 4.18.3 | package.json |
 | Next.js | framework | 14 | README.md |
-| PostgreSQL | database | latest | README.md, package.json |
-| Redis | database | latest | README.md, package.json |
+| PostgreSQL | database | latest | package.json, README.md |
+| Redis | database | latest | package.json, README.md |
 | Socket.io | infra | 4.7.4 | package.json |
 <!-- nexlayer:end -->
 
 ## Repository Structure
 <!-- nexlayer:section agent-managed=structure_map -->
 - src/ — Backend API (Express + Socket.io)
-- src/db/ — Postgres pool and schema initialization
-- src/redis/ — Redis pub/sub client configuration
-- src/routes/ — REST endpoints for auth and chat
+- src/db/ — Postgres pool, schema, and migrations
 - src/socket/ — Socket.io event handlers
 - web/ — Next.js frontend application
+- web/src/app/ — Next.js App Router pages
 <!-- nexlayer:end -->
 
 ## External Services Required
@@ -60,14 +59,14 @@ Copy `.env.example` to `.env.local` and fill in:
 ```
 DATABASE_URL=postgresql://postgres:password@localhost:5432/chatdb
 REDIS_URL=redis://localhost:6379
-JWT_SECRET=your_jwt_secret
+JWT_SECRET=your_secret_key
 ```
 
 ### Steps
 
 1. `npm install` — Install backend dependencies
 2. `npm run init-db` — Initialize database schema
-3. `npm run dev` — Start backend server on port 3000
+3. `npm run dev` — Start backend server on http://localhost:3000
 4. `cd web && npm install && npm run dev` — Start Next.js frontend
 
 <!-- nexlayer:end -->
@@ -78,16 +77,12 @@ JWT_SECRET=your_jwt_secret
 
 | Pod | Variable | Value | Kind |
 |-----|----------|-------|------|
-| `web` | `NODE_ENV` | `production` | plain |
-| `web` | `PORT` | `"3000"` | plain |
-| `web` | `HOSTNAME` | `"0.0.0.0"` | plain |
 | `app` | `NODE_ENV` | `production` | plain |
 | `app` | `PORT` | `"3000"` | plain |
 | `app` | `HOSTNAME` | `"0.0.0.0"` | plain |
 | `app` | `ROOT_URL` | `"<% URL %>"` | plain |
 | `app` | `DATABASE_URL` | `"postgresql://postgres:password@${postgres:5432}/chatdb"` | inter-pod |
 | `app` | `REDIS_URL` | `"redis://${redis:6379}"` | inter-pod |
-| `app` | `JWT_SECRET` | _(set via Nexlayer dashboard)_ | secret |
 | `postgres` | `POSTGRES_USER` | `"postgres"` | plain |
 | `postgres` | `POSTGRES_PASSWORD` | _(set via Nexlayer dashboard)_ | secret |
 | `postgres` | `POSTGRES_DB` | `"chatdb"` | plain |
@@ -96,7 +91,6 @@ JWT_SECRET=your_jwt_secret
 
 Set these in the Nexlayer dashboard before deploying:
 
-- `JWT_SECRET` (`app` pod)
 - `POSTGRES_PASSWORD` (`postgres` pod)
 
 ### nexlayer.yaml
@@ -105,18 +99,9 @@ Set these in the Nexlayer dashboard before deploying:
 application:
   name: warm-jade-chat-app
   pods:
-    - name: web
-      image: registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/warm-jade-chat-app-web:v0.0.1
-      path: /
-      servicePorts:
-        - 3000
-      vars:
-        NODE_ENV: production
-        PORT: "3000"
-        HOSTNAME: "0.0.0.0"
     - name: app
-      image: registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/warm-jade-chat-app-api:v0.0.1
-      path: /api
+      image: "# filled by pipeline"
+      path: /
       servicePorts:
         - 3000
       vars:
@@ -126,7 +111,6 @@ application:
         ROOT_URL: "<% URL %>"
         DATABASE_URL: "postgresql://postgres:password@${postgres:5432}/chatdb"
         REDIS_URL: "redis://${redis:6379}"
-        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
@@ -150,22 +134,22 @@ application:
 
 | Pod | Image | Port | Role |
 |-----|-------|------|------|
-| chat-api | mirror.gcr.io/library/node:20-alpine | 3000 | web |
-| chat-web | mirror.gcr.io/library/node:20-alpine | 3000 | web |
-| chat-db | mirror.gcr.io/library/postgres:16-alpine | 5432 | database |
-| chat-redis | mirror.gcr.io/library/redis:7-alpine | 6379 | cache |
+| api | mirror.gcr.io/library/node:20-alpine | 3000 | web |
+| web | mirror.gcr.io/library/node:20-alpine | 3001 | web |
+| postgres-db | mirror.gcr.io/library/postgres:16-alpine | 5432 | database |
+| redis-cache | mirror.gcr.io/library/redis:7-alpine | 6379 | cache |
 
 ### Inter-pod environment variables
 
-- `chat-api` pod: `DATABASE_URL=postgresql://postgres:password@${chat-db:5432}/chatdb`
-- `chat-api` pod: `REDIS_URL=redis://${chat-redis:6379}`
-- `chat-web` pod: `NEXT_PUBLIC_API_URL=http://${chat-api:3000}`
+- `api` pod: `DATABASE_URL=${postgres-db:5432}`
+- `api` pod: `REDIS_URL=${redis-cache:6379}`
+- `web` pod: `NEXT_PUBLIC_API_URL=http://${api:3000}`
 
 ### Deployment notes
 
-- Backend pod chat-api uses ${chat-db:5432} and ${chat-redis:6379} for internal communication
-- Frontend pod chat-web connects to chat-api for REST and Socket.io traffic
-- Native modules (bcrypt) require build-essential tools provided in Dockerfile alpine packages
+- Backend pod 'api' communicates with 'postgres-db' and 'redis-cache' using Nexlayer ${podName:port} syntax
+- Separate pods used for DB and Cache per Nexlayer Rule 4
+- Frontend 'web' is decoupled into its own pod to follow the one-service-per-pod rule
 
 <!-- nexlayer:end -->
 
@@ -176,27 +160,18 @@ application:
 
 ## Nexlayer Configuration
 <!-- nexlayer:section agent-managed=nexlayer_config -->
-**Last deployed:** 2026-06-17T12:19:25Z  
+**Last deployed:** 2026-06-17T12:45:51Z  
 **Live URL:** https://vibrant-wasp-warm-jade-chat-app.cloud.nexlayer.ai  
-**Runtime:**  · **Port:** auto-detected  
+**Runtime:** node · **Port:** 3000  
 **Deploy branch:** main  
 
 ```yaml
 application:
   name: warm-jade-chat-app
   pods:
-    - name: web
-      image: registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/warm-jade-chat-app-web:v0.0.1
-      path: /
-      servicePorts:
-        - 3000
-      vars:
-        NODE_ENV: production
-        PORT: "3000"
-        HOSTNAME: "0.0.0.0"
     - name: app
-      image: registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/warm-jade-chat-app-api:v0.0.1
-      path: /api
+      image: "# filled by pipeline"
+      path: /
       servicePorts:
         - 3000
       vars:
@@ -206,7 +181,6 @@ application:
         ROOT_URL: "<% URL %>"
         DATABASE_URL: "postgresql://postgres:password@${postgres:5432}/chatdb"
         REDIS_URL: "redis://${redis:6379}"
-        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
@@ -227,6 +201,6 @@ application:
 <!-- nexlayer:section agent-managed=build_history -->
 | Date | Status | Notes |
 |------|--------|-------|
-| 2026-06-17T12:18:46Z | analyzed | initial repo analysis |
-| 2026-06-17T12:19:25Z | success | deployed https://vibrant-wasp-warm-jade-chat-app.cloud.nexlayer.ai |
+| 2026-06-17T12:44:44Z | analyzed | initial repo analysis |
+| 2026-06-17T12:45:51Z | success | deployed https://vibrant-wasp-warm-jade-chat-app.cloud.nexlayer.ai |
 <!-- nexlayer:end -->
