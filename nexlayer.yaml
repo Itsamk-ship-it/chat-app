@@ -1,9 +1,18 @@
 application:
   name: warm-jade-chat-app
   pods:
-    - name: app
-      image: "# filled by pipeline"
+    - name: web
+      image: registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/warm-jade-chat-app-web:v0.0.1
       path: /
+      servicePorts:
+        - 3000
+      vars:
+        NODE_ENV: production
+        PORT: "3000"
+        HOSTNAME: "0.0.0.0"
+    - name: app
+      image: registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/warm-jade-chat-app-api:v0.0.1
+      path: /api
       servicePorts:
         - 3000
       vars:
@@ -13,6 +22,7 @@ application:
         ROOT_URL: "<% URL %>"
         DATABASE_URL: "postgresql://postgres:password@${postgres:5432}/chatdb"
         REDIS_URL: "redis://${redis:6379}"
+        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
