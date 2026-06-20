@@ -2,7 +2,7 @@
 
 **Live:** [https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai](https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai)  
 
-**Runtime:** node · **Port:** 3000 · **Deploy branch:** nexlayer
+**Runtime:**  · **Port:** auto-detected · **Deploy branch:** nexlayer
 
 ---
 
@@ -39,7 +39,7 @@ application:
   name: neat-drift-chat-app
   pods:
     - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ee4ae9d37"
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ee4bcf0dd"
       path: /
       servicePorts:
         - 3000
@@ -97,7 +97,7 @@ When asking Claude Code, Cursor, GitHub Copilot, or Gemini CLI to add features,
 include this context in your prompt:
 
 > *"This project is deployed on Nexlayer. The deployment manifest is `nexlayer.yaml`.
-> The container exposes port 3000. When adding a new service (database, cache,
+> The container exposes port auto-detected. When adding a new service (database, cache,
 > worker), add it as a new pod in `nexlayer.yaml` and reference it with
 > `<podName>.pod:<port>` syntax. CI/CD runs on push to `nexlayer`."*
 
