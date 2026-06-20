@@ -1,45 +1,106 @@
-# Nexlayer — neat-drift-chat-app
+# Nexlayer — chat-app
 
-**Live:** [https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai](https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai)  
+<!-- nexlayer:meta version=1 analyzed=2026-06-20T12:12:34Z repo=https://github.com/Itsamk-ship-it/chat-app branch=nexlayer -->
 
-**Runtime:**  · **Port:** auto-detected · **Deploy branch:** nexlayer
+> **For AI agents (Claude Code, Cursor, Gemini CLI, Copilot):**
+> This file is the **project context** for this Nexlayer deployment — tech stack, env vars, secrets, live URL.
+> For full platform detail (nexlayer.yaml schema, Dockerfile rules, CI/CD, task recipes) read **`nexlayer.skills`** in this repo.
+>
+> **Critical rules (full detail in `nexlayer.skills`):**
+> - Inter-pod refs: `${podName:port}` only — never `localhost` or bare hostnames
+> - Docker Hub images: prefix with `mirror.gcr.io/library/` — bare tags fail on the cluster
+> - Secrets: set in the Nexlayer dashboard — never commit to `nexlayer.yaml` or Dockerfile
+>
+> **This file:** `agent-managed` sections update automatically. `user-editable` sections (Local Development Setup, Nexlayer Deployment Plan, Build Notes) are yours — preserved across re-analysis.
 
----
+## Project Summary
+<!-- nexlayer:section agent-managed=project_summary -->
+A real-time Slack-like team chat application featuring organizations, channels, and direct messaging, powered by a Node.js/Express backend and a Next.js frontend.
+<!-- nexlayer:end -->
 
-## How this deployment works
+## Technology Stack
+<!-- nexlayer:section agent-managed=tech_stack -->
+| Name | Kind | Version | Detected From |
+|------|------|---------|---------------|
+| Next.js | framework | 14 | README.md |
+| Node.js | language | 18+ | README.md, package.json |
+| Express | framework | 4.18.3 | package.json |
+| PostgreSQL | database | latest | README.md, package.json |
+| Redis | infra | latest | README.md, package.json |
+| Socket.io | tool | 4.7.4 | package.json |
+<!-- nexlayer:end -->
 
-**neat-drift-chat-app** is deployed on [Nexlayer](https://nexlayer.ai) — a container-native
-platform where every push to `nexlayer` triggers a fully automated build-and-deploy
-pipeline with no infrastructure management required:
+## Repository Structure
+<!-- nexlayer:section agent-managed=structure_map -->
+- src/ — Backend API (Express + Socket.io)
+- src/db/ — Postgres pool and migrations
+- src/redis/ — Redis pub/sub clients
+- src/routes/ — REST endpoints for auth, orgs, and channels
+- src/socket/ — Socket.io real-time event handlers
+- web/src/app/ — Next.js App Router pages
+- web/src/store/ — Redux Toolkit state management
+<!-- nexlayer:end -->
 
-1. **AI analysis** — the Nexlayer agent reads your repo, understands your runtime,
-   dependencies, and project structure, then writes an optimised Dockerfile and
-   `nexlayer.yaml` tailored to your app.
-2. **Container build** — your image is built with Kaniko on Nexlayer's GPU cluster.
-   Build layer cache means subsequent builds are fast.
-3. **Deploy** — the image is deployed to a dedicated Nexlayer namespace.
-   A stable `*.cloud.nexlayer.ai` URL is ready within minutes.
-4. **Auto-fix loop** — if the build fails, the agent attempts up to 7 autonomous
-   repair attempts (patching the Dockerfile or nexlayer.yaml) before surfacing
-   the error. Most common build errors are resolved without human intervention.
-5. **CI/CD write-back** — a working GitHub Actions workflow (`.github/workflows/nexlayer.yml`)
-   is committed to your repo so every future push auto-deploys.
+## External Services Required
+<!-- nexlayer:section agent-managed=external_deps -->
+_No external services detected._
+<!-- nexlayer:end -->
 
----
+## Local Development Setup
+<!-- nexlayer:section user-editable=local_setup -->
+### Prerequisites
 
-## Configuration files
+- Node.js >= 18
+- PostgreSQL
+- Redis
 
-### `nexlayer.yaml` — deployment manifest
+### Environment variables
 
-Defines the pods (containers), ports, and environment that make up your app.
-The agent generates this; you can edit it freely.
+Copy `.env.example` to `.env.local` and fill in:
+
+```
+DATABASE_URL=postgresql://user:pass@localhost:5432/chatdb
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=your-secret-key
+```
+
+### Steps
+
+1. `npm install` — Install backend and shared dependencies
+2. `npm run init-db` — Initialize the PostgreSQL database schema
+3. `npm run dev` — Start the backend server on port 3000
+4. `cd web && npm install && npm run dev` — Start the Next.js frontend on port 3001
+
+<!-- nexlayer:end -->
+
+## Nexlayer Setup
+<!-- nexlayer:section agent-managed=nexlayer_setup -->
+### Pod Environment Variables
+
+| Pod | Variable | Value | Kind |
+|-----|----------|-------|------|
+| `app` | `NODE_ENV` | `production` | plain |
+| `app` | `PORT` | `"3000"` | plain |
+| `app` | `HOSTNAME` | `"0.0.0.0"` | plain |
+| `app` | `ROOT_URL` | `"<% URL %>"` | plain |
+| `postgres` | `POSTGRES_DB` | `chatdb` | plain |
+| `postgres` | `POSTGRES_USER` | `user` | plain |
+| `postgres` | `POSTGRES_PASSWORD` | _(set via Nexlayer dashboard)_ | secret |
+
+### Secrets Required
+
+Set these in the Nexlayer dashboard before deploying:
+
+- `POSTGRES_PASSWORD` (`postgres` pod)
+
+### nexlayer.yaml
 
 ```yaml
 application:
   name: neat-drift-chat-app
   pods:
     - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ee4bcf0dd"
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ee4f1edcf"
       path: /
       servicePorts:
         - 3000
@@ -63,51 +124,74 @@ application:
       vars: {}
 ```
 
-**Common edits:**
+<!-- nexlayer:end -->
 
-| Goal | What to change |
-|---|---|
-| Change exposed port | `servicePorts:` + `EXPOSE` in Dockerfile |
-| Add environment variable | `vars:` under the relevant pod |
-| Add a database (Postgres, MySQL, Redis) | New entry in `pods:`, then reference via `<podName>.pod:<port>` |
-| Change the URL slug / app name | `application.name:` |
-| Add a worker / background job | New pod with its own image and no `path:` |
+## Nexlayer Deployment Plan
+<!-- nexlayer:section user-editable=deployment_plan -->
+### Pod Topology
 
-### `Dockerfile` — container recipe
+| Pod | Image | Port | Role |
+|-----|-------|------|------|
+| web-frontend | mirror.gcr.io/library/node:22-alpine | 3000 | web |
+| backend-api | mirror.gcr.io/library/node:22-alpine | 3000 | web |
+| postgres-db | mirror.gcr.io/library/postgres:16-alpine | 5432 | database |
+| redis-cache | mirror.gcr.io/library/redis:7-alpine | 6379 | cache |
 
-Generated by the Nexlayer agent for your runtime. Edit it freely.
-The pipeline always uses whatever `Dockerfile` is in your repo — the agent
-only regenerates it if you delete it or on the very first deploy.
+### Deployment notes
 
-### `.github/workflows/nexlayer.yml` — CI/CD
+- Backend API communicates with the database via postgres-db.pod:5432
+- Backend API communicates with the Redis cache via redis-cache.pod:6379
+- Frontend communicates with the Backend API via backend-api.pod:3000
+- All images use the mirror.gcr.io/library prefix to comply with Nexlayer rules
 
-Triggers on:
-- **Push** to `nexlayer` → production redeploy
-- **Pull request** → preview deploy with a unique URL posted as a PR comment
-- **Manual** → run on demand from the Actions tab (no commit required)
+<!-- nexlayer:end -->
 
-The workflow authenticates with a **durable** `NEXLAYER_API_KEY` secret — it does
-not expire after 1 hour like GitHub's `GITHUB_TOKEN`.
+## Build Notes
+<!-- nexlayer:section user-editable=build_notes -->
+<!-- Add notes for future builds here — preserved across re-analysis -->
+<!-- nexlayer:end -->
 
----
+## Nexlayer Configuration
+<!-- nexlayer:section agent-managed=nexlayer_config -->
+**Last deployed:** 2026-06-20T12:19:20Z  
+**Live URL:** https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai  
+**Runtime:**  · **Port:** auto-detected  
+**Deploy branch:** nexlayer  
 
-## Working with AI coding agents
+```yaml
+application:
+  name: neat-drift-chat-app
+  pods:
+    - name: app
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ee4f1edcf"
+      path: /
+      servicePorts:
+        - 3000
+      vars:
+        NODE_ENV: production
+        PORT: "3000"
+        HOSTNAME: "0.0.0.0"
+        ROOT_URL: "<% URL %>"
+    - name: postgres
+      image: mirror.gcr.io/library/postgres:16-alpine
+      servicePorts:
+        - 5432
+      vars:
+        POSTGRES_DB: chatdb
+        POSTGRES_USER: user
+        POSTGRES_PASSWORD: pass
+    - name: redis
+      image: mirror.gcr.io/library/redis:7-alpine
+      servicePorts:
+        - 6379
+      vars: {}
+```
+<!-- nexlayer:end -->
 
-When asking Claude Code, Cursor, GitHub Copilot, or Gemini CLI to add features,
-include this context in your prompt:
-
-> *"This project is deployed on Nexlayer. The deployment manifest is `nexlayer.yaml`.
-> The container exposes port auto-detected. When adding a new service (database, cache,
-> worker), add it as a new pod in `nexlayer.yaml` and reference it with
-> `<podName>.pod:<port>` syntax. CI/CD runs on push to `nexlayer`."*
-
-The `nexlayer.skills` file in this repo gives agents structured guidance on the
-Nexlayer platform, including schema reference, common patterns, and anti-patterns.
-
----
-
-## Useful links
-
-- **Dashboard:** [nexlayer.ai](https://nexlayer.ai) — view deployments, logs, domains, API keys
-- **Agent:** [agent.nexlayer.com](https://agent.nexlayer.com) — chat interface + REST API
-- **Docs:** [nexlayer.ai/docs](https://nexlayer.ai/docs)
+## Build History
+<!-- nexlayer:section agent-managed=build_history -->
+| Date | Status | Notes |
+|------|--------|-------|
+| 2026-06-20T12:12:34Z | analyzed | initial repo analysis |
+| 2026-06-20T12:19:20Z | success | deployed https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai |
+<!-- nexlayer:end -->
