@@ -78,10 +78,16 @@ JWT_SECRET=your-secret-key
 
 | Pod | Variable | Value | Kind |
 |-----|----------|-------|------|
+| `web` | `NODE_ENV` | `production` | plain |
+| `web` | `PORT` | `"3000"` | plain |
+| `web` | `HOSTNAME` | `"0.0.0.0"` | plain |
 | `app` | `NODE_ENV` | `production` | plain |
-| `app` | `PORT` | `"3000"` | plain |
+| `app` | `PORT` | `"3001"` | plain |
 | `app` | `HOSTNAME` | `"0.0.0.0"` | plain |
 | `app` | `ROOT_URL` | `"<% URL %>"` | plain |
+| `app` | `JWT_SECRET` | _(set via Nexlayer dashboard)_ | secret |
+| `app` | `DATABASE_URL` | `postgresql://user:pass@postgres.pod:5432/chatdb` | plain |
+| `app` | `REDIS_URL` | `redis://redis.pod:6379` | plain |
 | `postgres` | `POSTGRES_DB` | `chatdb` | plain |
 | `postgres` | `POSTGRES_USER` | `user` | plain |
 | `postgres` | `POSTGRES_PASSWORD` | _(set via Nexlayer dashboard)_ | secret |
@@ -98,8 +104,8 @@ Set these in the Nexlayer dashboard before deploying:
 application:
   name: neat-drift-chat-app
   pods:
-    - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5a7e40f"
+    - name: web
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app-web:latest"
       path: /
       servicePorts:
         - 3000
@@ -107,7 +113,19 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
+    - name: app
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5a7e40f"
+      path: /api
+      servicePorts:
+        - 3001
+      vars:
+        NODE_ENV: production
+        PORT: "3001"
+        HOSTNAME: "0.0.0.0"
         ROOT_URL: "<% URL %>"
+        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
+        DATABASE_URL: "postgresql://user:pass@postgres.pod:5432/chatdb"
+        REDIS_URL: "redis://redis.pod:6379"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
@@ -128,24 +146,73 @@ application:
 <!-- nexlayer:section user-editable=deployment_plan -->
 ### Pod Topology
 
-| Pod | Image | Port | Role |
-|-----|-------|------|------|
-| web-frontend | mirror.gcr.io/library/node:22-alpine | 3000 | web |
-| backend-api | mirror.gcr.io/library/node:22-alpine | 3000 | web |
-| postgres-db | mirror.gcr.io/library/postgres:16-alpine | 5432 | database |
-| redis-cache | mirror.gcr.io/library/redis:7-alpine | 6379 | cache |
+| Pod | Image | Port | Path | Role |
+|-----|-------|------|------|------|
+| web | chat-app-web (built from web/Dockerfile.web) | 3000 | `/` | frontend |
+| app | chat-app (built from ./Dockerfile) | 3001 | `/api` | backend API |
+| postgres | mirror.gcr.io/library/postgres:16-alpine | 5432 | — | database |
+| redis | mirror.gcr.io/library/redis:7-alpine | 6379 | — | cache |
 
 ### Deployment notes
 
-- Backend API communicates with the database via postgres-db.pod:5432
-- Backend API communicates with the Redis cache via redis-cache.pod:6379
-- Frontend communicates with the Backend API via backend-api.pod:3000
-- All images use the mirror.gcr.io/library prefix to comply with Nexlayer rules
+- Backend reaches Postgres via `postgres.pod:5432` and Redis via `redis.pod:6379`
+  (set as `DATABASE_URL` / `REDIS_URL` in nexlayer.yaml).
+- Frontend talks to the backend same-origin: `/` → web, `/api` → app. The `/api`
+  prefix is preserved when routed to the backend (backend mounts all routes under `/api`).
+- Socket.io runs over the same origin at `path: /api/socket.io`.
+- Base images use the mirror.gcr.io/library prefix to comply with Nexlayer rules.
 
 <!-- nexlayer:end -->
 
 ## Build Notes
 <!-- nexlayer:section user-editable=build_notes -->
+
+### Deploy failure analysis — 2026-06-23 (HTTP 503)
+
+The deployment built and pushed the image successfully but the app URL returned
+**HTTP 503**. Root cause was a crash-on-start in the backend container plus a
+missing frontend, not a build problem. Three distinct issues were found and fixed:
+
+**1. Wrong CMD in the backend Dockerfile (the actual 503).**
+The root `Dockerfile` ended with `CMD ["node", "src/index.js"]`, but there is no
+`src/` directory — the entrypoint is `backend/index.js` (`package.json` → `"main":
+"backend/index.js"`). Node exited immediately with `Cannot find module
+'/app/src/index.js'`, so the pod never served traffic. Fixed to
+`CMD ["node", "backend/index.js"]`.
+
+**2. Invalid inter-pod hostnames for Postgres/Redis.**
+The Dockerfile injected an `nx-start.sh` script that derived DB/Redis hostnames by
+string-slicing `ROOT_URL` into `<...>-postgres-service` / `<...>-redis-service`.
+Those are not valid Nexlayer service names. Per `nexlayer.skills`, pod names *are*
+the internal DNS hostnames and must be referenced as `<podName>.pod:<port>`. The
+script was removed; `DATABASE_URL` and `REDIS_URL` are now set directly in
+`nexlayer.yaml`:
+- `DATABASE_URL=postgresql://user:pass@postgres.pod:5432/chatdb`
+- `REDIS_URL=redis://redis.pod:6379`
+
+**3. No frontend pod, and `JWT_SECRET` missing.**
+The deployed `app` pod ran the backend API only — the Next.js frontend in `web/`
+(its own `web/Dockerfile.web`) was never built or served, so `/` would 404 even
+after the backend booted. Also `JWT_SECRET` (used in `backend/middleware/auth.js`
+and `backend/routes/auth.js`) was not provided, so auth would fail. Both fixed.
+
+### Resulting topology
+
+- `web` (Next.js) → path `/`, port **3000**
+- `app` (Express + Socket.io) → path `/api`, port **3001**
+- `postgres` → 5432, `redis` → 6379
+
+All pods share one public hostname; path routing sends `/` to `web` and `/api` to
+`app`. This matches how the frontend is written: `web/src/lib/api.ts` calls
+same-origin `/api/*` in production, and `web/src/hooks/useSocket.ts` connects
+Socket.io to the same origin with `path: '/api/socket.io'`. The `/api` prefix must
+be **preserved** when routing to the backend, since the backend mounts every route
+under `/api`.
+
+> Note: the GitHub token used for the previous deploy lacked the `workflow` scope,
+> so the CI/CD workflow was not added. Re-deploy with a token that has
+> `workflows:write` to enable automatic CI/CD.
+
 <!-- Add notes for future builds here — preserved across re-analysis -->
 <!-- nexlayer:end -->
 
@@ -160,8 +227,8 @@ application:
 application:
   name: neat-drift-chat-app
   pods:
-    - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5a7e40f"
+    - name: web
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app-web:latest"
       path: /
       servicePorts:
         - 3000
@@ -169,7 +236,19 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
+    - name: app
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5a7e40f"
+      path: /api
+      servicePorts:
+        - 3001
+      vars:
+        NODE_ENV: production
+        PORT: "3001"
+        HOSTNAME: "0.0.0.0"
         ROOT_URL: "<% URL %>"
+        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
+        DATABASE_URL: "postgresql://user:pass@postgres.pod:5432/chatdb"
+        REDIS_URL: "redis://redis.pod:6379"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
