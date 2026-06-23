@@ -1,10 +1,8 @@
 application:
   name: neat-drift-chat-app
   pods:
-    # Frontend (Next.js) — served at / on port 3000
-    - name: web
-      # Built by the pipeline from web/Dockerfile.web (build context: web/)
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app-web:latest"
+    - name: app
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5ef81d4"
       path: /
       servicePorts:
         - 3000
@@ -12,23 +10,7 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
-        # NEXT_PUBLIC_API_URL intentionally unset — the client uses same-origin /api
-
-    # Backend (Express + Socket.io) — served at /api on port 3001
-    - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5a7e40f"
-      path: /api
-      servicePorts:
-        - 3001
-      vars:
-        NODE_ENV: production
-        PORT: "3001"
-        HOSTNAME: "0.0.0.0"
         ROOT_URL: "<% URL %>"
-        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
-        DATABASE_URL: "postgresql://user:pass@postgres.pod:5432/chatdb"
-        REDIS_URL: "redis://redis.pod:6379"
-
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
@@ -37,7 +19,6 @@ application:
         POSTGRES_DB: chatdb
         POSTGRES_USER: user
         POSTGRES_PASSWORD: pass
-
     - name: redis
       image: mirror.gcr.io/library/redis:7-alpine
       servicePorts:

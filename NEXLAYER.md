@@ -15,7 +15,7 @@
 
 ## Project Summary
 <!-- nexlayer:section agent-managed=project_summary -->
-A real-time team chat application featuring organizations, channels, and direct messaging, built with a Node.js/Express backend, Next.js frontend, and Socket.io for live communication.
+A real-time, Slack-like team chat application featuring organizations, channels, direct messages, and threads. It utilizes a Node.js/Express backend with Socket.io for real-time communication, backed by PostgreSQL and Redis.
 <!-- nexlayer:end -->
 
 ## Technology Stack
@@ -25,19 +25,17 @@ A real-time team chat application featuring organizations, channels, and direct 
 | Node.js | language | 22 | Dockerfile |
 | Express | framework | 4.18.3 | package.json |
 | Next.js | framework | 14 | README.md |
-| PostgreSQL | database | latest | README.md |
-| Redis | infra | latest | README.md |
+| PostgreSQL | database | 16 | README.md |
+| Redis | database | latest | README.md |
 | Socket.io | infra | 4.7.4 | package.json |
-| TypeScript | language | latest | README.md |
 <!-- nexlayer:end -->
 
 ## Repository Structure
 <!-- nexlayer:section agent-managed=structure_map -->
-- src/ — Backend API (Express + Socket.io logic)
-- src/db/ — PostgreSQL pool and schema migrations
-- src/socket/ — Socket.io event handlers
-- web/src/app/ — Next.js App Router pages
-- web/src/store/ — Redux toolkit state management
+- backend/ — Node.js/Express API, Socket.io handlers, and DB logic
+- web/ — Next.js 14 frontend with App Router
+- backend/db/ — Database schema and initialization scripts
+- backend/redis/ — Redis pub/sub configuration
 <!-- nexlayer:end -->
 
 ## External Services Required
@@ -78,16 +76,10 @@ JWT_SECRET=your-secret-key
 
 | Pod | Variable | Value | Kind |
 |-----|----------|-------|------|
-| `web` | `NODE_ENV` | `production` | plain |
-| `web` | `PORT` | `"3000"` | plain |
-| `web` | `HOSTNAME` | `"0.0.0.0"` | plain |
 | `app` | `NODE_ENV` | `production` | plain |
-| `app` | `PORT` | `"3001"` | plain |
+| `app` | `PORT` | `"3000"` | plain |
 | `app` | `HOSTNAME` | `"0.0.0.0"` | plain |
 | `app` | `ROOT_URL` | `"<% URL %>"` | plain |
-| `app` | `JWT_SECRET` | _(set via Nexlayer dashboard)_ | secret |
-| `app` | `DATABASE_URL` | `postgresql://user:pass@postgres.pod:5432/chatdb` | plain |
-| `app` | `REDIS_URL` | `redis://redis.pod:6379` | plain |
 | `postgres` | `POSTGRES_DB` | `chatdb` | plain |
 | `postgres` | `POSTGRES_USER` | `user` | plain |
 | `postgres` | `POSTGRES_PASSWORD` | _(set via Nexlayer dashboard)_ | secret |
@@ -104,8 +96,8 @@ Set these in the Nexlayer dashboard before deploying:
 application:
   name: neat-drift-chat-app
   pods:
-    - name: web
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app-web:latest"
+    - name: app
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5ef81d4"
       path: /
       servicePorts:
         - 3000
@@ -113,19 +105,7 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
-    - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5a7e40f"
-      path: /api
-      servicePorts:
-        - 3001
-      vars:
-        NODE_ENV: production
-        PORT: "3001"
-        HOSTNAME: "0.0.0.0"
         ROOT_URL: "<% URL %>"
-        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
-        DATABASE_URL: "postgresql://user:pass@postgres.pod:5432/chatdb"
-        REDIS_URL: "redis://redis.pod:6379"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
@@ -172,7 +152,7 @@ application:
 
 ## Nexlayer Configuration
 <!-- nexlayer:section agent-managed=nexlayer_config -->
-**Last deployed:** 2026-06-23T18:11:23Z  
+**Last deployed:** 2026-06-23T19:29:47Z  
 **Live URL:** https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai  
 **Runtime:**  · **Port:** auto-detected  
 **Deploy branch:** nexlayer  
@@ -181,8 +161,8 @@ application:
 application:
   name: neat-drift-chat-app
   pods:
-    - name: web
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app-web:latest"
+    - name: app
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5ef81d4"
       path: /
       servicePorts:
         - 3000
@@ -190,19 +170,7 @@ application:
         NODE_ENV: production
         PORT: "3000"
         HOSTNAME: "0.0.0.0"
-    - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19ef5a7e40f"
-      path: /api
-      servicePorts:
-        - 3001
-      vars:
-        NODE_ENV: production
-        PORT: "3001"
-        HOSTNAME: "0.0.0.0"
         ROOT_URL: "<% URL %>"
-        JWT_SECRET: "super-secret-jwt-key-change-in-production-please"
-        DATABASE_URL: "postgresql://user:pass@postgres.pod:5432/chatdb"
-        REDIS_URL: "redis://redis.pod:6379"
     - name: postgres
       image: mirror.gcr.io/library/postgres:16-alpine
       servicePorts:
@@ -223,9 +191,10 @@ application:
 <!-- nexlayer:section agent-managed=build_history -->
 | Date | Status | Notes |
 |------|--------|-------|
-| 2026-06-23T18:05:13Z | analyzed | initial repo analysis |
-| 2026-06-23T18:11:23Z | success | deployed https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai |
+| 2026-06-23T19:23:27Z | analyzed | initial repo analysis |
+| 2026-06-23T19:29:47Z | success | deployed https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai |
 <!-- nexlayer:end -->
+
 
 
 
