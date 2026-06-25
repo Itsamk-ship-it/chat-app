@@ -2,7 +2,7 @@ application:
   name: neat-drift-chat-app
   pods:
     - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19eff9100af"
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19eff9834a0"
       path: /
       servicePorts:
         - 3000
