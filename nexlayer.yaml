@@ -2,7 +2,7 @@ application:
   name: neat-drift-chat-app
   pods:
     - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19eff9834a0"
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19f0419ad58"
       path: /
       servicePorts:
         - 3000
@@ -18,7 +18,7 @@ application:
       vars:
         POSTGRES_DB: chatdb
         POSTGRES_USER: user
-        POSTGRES_PASSWORD: pass
+        POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     - name: redis
       image: mirror.gcr.io/library/redis:7-alpine
       servicePorts:
