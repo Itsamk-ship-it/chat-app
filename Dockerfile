@@ -13,11 +13,21 @@ RUN npm ci
 COPY . .
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-EXPOSE 3001
+EXPOSE 3000
 
-# Entrypoint is backend/index.js (package.json "main"); there is no src/ directory.
-# DATABASE_URL / REDIS_URL are injected via nexlayer.yaml using <podName>.pod:<port>.
-CMD ["node", "backend/index.js"]
+USER root
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'if [ -n "$ROOT_URL" ]; then' \
+    '  _h=$(echo "$ROOT_URL" | sed "s|https://||" | sed "s|\.cloud\.nexlayer\.ai||")' \
+    '  _d=$(echo "$_h" | cut -d- -f3-)' \
+    '  export DATABASE_URL="postgresql://user:pass@${_d}-postgres-service:5432/chatdb"' \
+    '  export REDIS_URL="redis://${_d}-redis-service:6379"' \
+    'fi' \
+    'exec "$@"' > /nx-start.sh && chmod +x /nx-start.sh
+
+ENTRYPOINT ["/bin/sh", "/nx-start.sh"]
+CMD ["node", "src/index.js"]
