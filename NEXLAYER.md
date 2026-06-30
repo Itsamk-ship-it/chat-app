@@ -15,30 +15,28 @@
 
 ## Project Summary
 <!-- nexlayer:section agent-managed=project_summary -->
-A real-time, Slack-like team chat application featuring organizations, channels, and direct messaging. It utilizes a Node.js/Express backend with Socket.io for live communication, PostgreSQL for persistent storage, and Redis for pub/sub fan-out.
+A real-time, Slack-like team chat application featuring organizations, channels, direct messages, and threads, powered by a Node.js/Express backend and a Next.js frontend.
 <!-- nexlayer:end -->
 
 ## Technology Stack
 <!-- nexlayer:section agent-managed=tech_stack -->
 | Name | Kind | Version | Detected From |
 |------|------|---------|---------------|
-| Node.js | language | 18+ | README.md |
+| Node.js | language | 22 | Dockerfile |
 | Express | framework | 4.18.3 | package.json |
 | Next.js | framework | 14 | README.md |
-| PostgreSQL | database | Not specified | README.md |
-| Redis | database | Not specified | README.md |
+| PostgreSQL | database | 16 | README.md |
+| Redis | cache | latest | README.md |
 | Socket.io | tool | 4.7.4 | package.json |
 <!-- nexlayer:end -->
 
 ## Repository Structure
 <!-- nexlayer:section agent-managed=structure_map -->
-- backend/index.js — Entry point for Express and Socket.io server
-- backend/db/ — Database connection pool and schema migrations
-- backend/redis/ — Redis pub/sub client configuration
-- backend/routes/ — REST API endpoints for auth, orgs, and channels
-- backend/socket/ — Socket.io event handlers for real-time messaging
-- web/src/app/ — Next.js App Router frontend pages
+- src/ — Backend API (Express, Socket.io, Postgres/Redis logic)
+- web/src/app/ — Next.js App Router pages
+- web/src/components/ — React UI components
 - web/src/store/ — Redux Toolkit state management
+- web/src/hooks/ — Custom hooks for socket and API
 <!-- nexlayer:end -->
 
 ## External Services Required
@@ -94,7 +92,7 @@ application:
   name: neat-drift-chat-app
   pods:
     - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19f18f7fece"
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19f19006a46"
       path: /
       servicePorts:
         - 3000
@@ -149,7 +147,7 @@ application:
 
 ## Nexlayer Configuration
 <!-- nexlayer:section agent-managed=nexlayer_config -->
-**Last deployed:** 2026-06-30T14:45:33Z  
+**Last deployed:** 2026-06-30T14:54:38Z  
 **Live URL:** https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai  
 **Runtime:**  · **Port:** auto-detected  
 **Deploy branch:** nexlayer  
@@ -159,7 +157,7 @@ application:
   name: neat-drift-chat-app
   pods:
     - name: app
-      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19f18f7fece"
+      image: "registry.nexlayer.io/user_01kdnss9re3ack631zmxgpra36/chat-app:19f19006a46"
       path: /
       servicePorts:
         - 3000
@@ -188,9 +186,10 @@ application:
 <!-- nexlayer:section agent-managed=build_history -->
 | Date | Status | Notes |
 |------|--------|-------|
-| 2026-06-30T14:39:27Z | analyzed | initial repo analysis |
-| 2026-06-30T14:45:33Z | success | deployed https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai |
+| 2026-06-30T14:48:37Z | analyzed | initial repo analysis |
+| 2026-06-30T14:54:38Z | success | deployed https://vibrant-wasp-neat-drift-chat-app.cloud.nexlayer.ai |
 <!-- nexlayer:end -->
+
 
 
 
